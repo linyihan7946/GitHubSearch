@@ -57,6 +57,19 @@ GitHubSearch/
 └── README.md
 ```
 
+## Codex / Hermes 集成
+
+本项目已提供标准的 Agent Skill 定义，开箱即用：
+
+| 文件 | 用途 | 目标 |
+|------|------|------|
+| [`skill.md`](./skill.md) | Agent 使用说明（示例、调用方式、常见问题） | Codex、Hermes |
+| [`openapi.yaml`](./openapi.yaml) | OpenAPI 3.0 规范（机器可读） | Codex、Hermes（导入 OAS） |
+| [`AGENTS.md`](./AGENTS.md) | 完整项目文档（编码、架构） | AI 编码 Agent |
+
+Agent 可直接读取 `skill.md` 了解如何调用本工具，
+或导入 `openapi.yaml` 自动生成请求代码。
+
 ## License
 
 MIT

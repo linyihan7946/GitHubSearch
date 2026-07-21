@@ -1,0 +1,438 @@
+openapi: "3.0.3"
+info:
+  title: GitHub 趋势搜索 API
+  description: |
+    搜索 GitHub 上某领域在指定时间段内星标增长最快的开源项目。
+    供 Codex、Hermes 等 AI Agent 调用。
+
+    **特性**：
+    - 内存缓存（5/10/30 分钟 TTL）
+    - 响应头 `x-cache: HIT/MISS` 标识缓存状态
+    - 可选 GitHub Token 提升限流（10→30 次/分钟）
+  version: "1.0.0"
+  contact:
+    name: GitHubSearch
+
+servers:
+  - url: http://localhost:3000
+    description: 本地开发服务器
+
+tags:
+  - name: Health
+    description: 健康检查
+  - name: Search
+    description: 趋势搜索（核心）
+  - name: Repo
+    description: 仓库详情与 README
+
+paths:
+  /api/health:
+    get:
+      tags: [Health]
+      summary: 健康检查
+      operationId: healthCheck
+      responses:
+        "200":
+          description: 服务正常
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptime:
+                    type: number
+                    description: 进程已运行秒数
+                  cache:
+                    type: object
+                    properties:
+                      size:
+                        type: integer
+                        description: 当前缓存条目数
+              example:
+                status: "ok"
+                timestamp: "2026-07-21T08:30:00.000Z"
+                uptime: 123.4
+                cache: { size: 5 }
+
+  /api/search:
+    get:
+      tags: [Search]
+      summary: 搜索趋势项目（核心）
+      description: |
+        搜索 GitHub 上特定领域在指定时间段内星标增长最快的项目。
+        keyword 留空则为全站搜索。
+      operationId: searchTrending
+      parameters:
+        - name: keyword
+          in: query
+          required: false
+          description: 领域关键词（留空=全站搜索），示例：ai, rust, web, machine-learning
+          schema:
+            type: string
+            maxLength: 100
+          example: "ai"
+        - name: days
+          in: query
+          required: false
+          description: 时间范围（天数），默认 7
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1825
+            default: 7
+          example: 30
+      responses:
+        "200":
+          description: 搜索结果
+          headers:
+            x-cache:
+              schema:
+                type: string
+                enum: [HIT, MISS]
+              description: 是否命中缓存
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    description: 始终为 true
+                  data:
+                    type: object
+                    properties:
+                      keyword:
+                        type: string
+                      days:
+                        type: integer
+                      sinceDate:
+                        type: string
+                        format: date
+                      totalCount:
+                        type: integer
+                        description: 符合条件的项目总数
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/RepoItem"
+              example:
+                success: true
+                data:
+                  keyword: "ai"
+                  days: 30
+                  sinceDate: "2026-06-21"
+                  totalCount: 482091
+                  items:
+                    - rank: 1
+                      name: "T3MP3ST"
+                      fullName: "elder-plinius/T3MP3ST"
+                      owner: "elder-plinius"
+                      description: "autonomous red teaming platform"
+                      stars: 5052
+                      forks: 1038
+                      watchers: 5052
+                      language: "TypeScript"
+                      languageColor: "#3178c6"
+                      url: "https://github.com/elder-plinius/T3MP3ST"
+                      createdAt: "2026-07-02"
+                      updatedAt: "2026-07-21"
+                      topics: ["ai", "agents"]
+                      license: "AGPL-3.0"
+                      openIssues: 1
+                      isArchived: false
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /api/repos/{owner}/{repo}:
+    get:
+      tags: [Repo]
+      summary: 获取仓库详情
+      description: 返回仓库完整信息 + 最近 5 次提交 + 最近 5 个 issues
+      operationId: getRepoDetail
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "microsoft"
+        - name: repo
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "typescript"
+      responses:
+        "200":
+          description: 仓库详情
+          headers:
+            x-cache:
+              schema:
+                type: string
+                enum: [HIT, MISS]
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/RepoDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/repos/{owner}/{repo}/readme:
+    get:
+      tags: [Repo]
+      summary: 获取仓库 README
+      description: 返回已渲染的 README HTML
+      operationId: getReadme
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: repo
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: ref
+          in: query
+          required: false
+          description: 分支名（可选）
+          schema:
+            type: string
+      responses:
+        "200":
+          description: README 内容
+          headers:
+            x-cache:
+              schema:
+                type: string
+                enum: [HIT, MISS]
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      html:
+                        type: string
+                        description: 已渲染的 README HTML，无 README 时为 null
+                      hasReadme:
+                        type: boolean
+              example:
+                success: true
+                data:
+                  html: "<div id=\"readme\">...</div>"
+                  hasReadme: true
+
+components:
+  schemas:
+    RepoItem:
+      type: object
+      properties:
+        rank:
+          type: integer
+          description: 排名（1-10）
+        name:
+          type: string
+          description: 仓库名
+        fullName:
+          type: string
+          description: 完整路径（owner/name）
+        owner:
+          type: string
+          description: 拥有者
+        description:
+          type: string
+          nullable: true
+          description: 项目简介
+        stars:
+          type: integer
+          description: 星标数
+        forks:
+          type: integer
+        watchers:
+          type: integer
+        language:
+          type: string
+          nullable: true
+          description: 主要编程语言
+        languageColor:
+          type: string
+          nullable: true
+          description: 语言对应的十六进制颜色
+        url:
+          type: string
+          format: uri
+          description: GitHub 仓库链接
+        createdAt:
+          type: string
+          format: date
+        updatedAt:
+          type: string
+          format: date
+        topics:
+          type: array
+          items:
+            type: string
+        license:
+          type: string
+          nullable: true
+        openIssues:
+          type: integer
+        isArchived:
+          type: boolean
+
+    RepoDetail:
+      allOf:
+        - $ref: "#/components/schemas/RepoItem"
+        - type: object
+          properties:
+            size:
+              type: integer
+            defaultBranch:
+              type: string
+            homepage:
+              type: string
+              nullable: true
+            hasWiki:
+              type: boolean
+            hasProjects:
+              type: boolean
+            isTemplate:
+              type: boolean
+            isFork:
+              type: boolean
+            pushedAt:
+              type: string
+              format: date
+            recentCommits:
+              type: array
+              items:
+                $ref: "#/components/schemas/Commit"
+            recentIssues:
+              type: array
+              items:
+                $ref: "#/components/schemas/Issue"
+
+    Commit:
+      type: object
+      properties:
+        sha:
+          type: string
+        message:
+          type: string
+        author:
+          type: string
+        date:
+          type: string
+          format: date-time
+        url:
+          type: string
+          format: uri
+
+    Issue:
+      type: object
+      properties:
+        number:
+          type: integer
+        title:
+          type: string
+        state:
+          type: string
+          enum: [open, closed]
+        author:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        url:
+          type: string
+          format: uri
+        labels:
+          type: array
+          items:
+            type: string
+
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_ERROR
+                - NOT_FOUND
+                - RATE_LIMITED
+                - GITHUB_ERROR
+                - INTERNAL_ERROR
+            message:
+              type: string
+            retryAfter:
+              type: integer
+              description: 仅 RATE_LIMITED 时返回，建议重试秒数
+
+  responses:
+    ValidationError:
+      description: 参数校验失败
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            error:
+              code: "VALIDATION_ERROR"
+              message: "days 必须在 1-1825 之间"
+
+    NotFound:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            error:
+              code: "NOT_FOUND"
+              message: "仓库不存在"
+
+    RateLimited:
+      description: GitHub API 限流
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            error:
+              code: "RATE_LIMITED"
+              message: "GitHub API 请求次数已达上限，请稍后重试"
+              retryAfter: 60
