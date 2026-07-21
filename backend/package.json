@@ -1,0 +1,26 @@
+{
+  "name": "github-trending-backend",
+  "version": "1.0.0",
+  "description": "GitHub 趋势搜索后端 API，供 Hermes 等 AI Agent 调用",
+  "main": "server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "github",
+    "trending",
+    "api",
+    "hermes"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0"
+  }
+}

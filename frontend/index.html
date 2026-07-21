@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitHub 趋势搜索 - 发现增长最快的项目</title>
+  <meta name="description" content="搜索 GitHub 上某领域某时间段内星标增长最快的项目" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-inner">
+        <h1 class="logo">
+          <svg class="logo-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+            <path fill="currentColor" d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.28-.01-1.02-.02-2-3.2.7-3.88-1.54-3.88-1.54-.52-1.33-1.27-1.69-1.27-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.68 1.25 3.34.96.1-.74.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.18 1.18.92-.26 1.91-.38 2.89-.39.98.01 1.97.13 2.89.39 2.21-1.49 3.18-1.18 3.18-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.84 1.18 3.1 0 4.42-2.69 5.39-5.25 5.68.41.35.78 1.05.78 2.12 0 1.53-.01 2.76-.01 3.14 0 .31.21.67.8.56C20.21 21.39 23.5 17.08 23.5 12 23.5 5.65 18.35.5 12 .5z"/>
+          </svg>
+          <span>GitHub 趋势搜索</span>
+        </h1>
+        <p class="subtitle">发现某领域内星标增长最快的开源项目</p>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="search-card">
+        <form class="search-form" id="searchForm" autocomplete="off">
+          <div class="form-group">
+            <label for="keyword">领域关键词 <span class="label-hint">（可留空，搜索全站）</span></label>
+            <input
+              type="text"
+              id="keyword"
+              name="keyword"
+              placeholder="留空则搜索全站热门项目"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>时间范围</label>
+            <div class="time-range" id="timeRange" role="radiogroup" aria-label="时间范围">
+              <button type="button" class="range-btn" data-days="3">最近 3 天</button>
+              <button type="button" class="range-btn active" data-days="7">最近一周</button>
+              <button type="button" class="range-btn" data-days="30">最近一月</button>
+              <button type="button" class="range-btn" data-days="365">最近一年</button>
+              <button type="button" class="range-btn" data-days="1095">最近三年</button>
+              <button type="button" class="range-btn" data-days="1825">最近五年</button>
+            </div>
+            <input type="hidden" id="selectedDays" value="7" />
+          </div>
+
+          <button type="submit" class="search-btn" id="searchBtn">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path fill="currentColor" d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 5 1.49-1.49-5-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/>
+            </svg>
+            <span>搜索</span>
+          </button>
+        </form>
+      </section>
+
+      <section class="results-section" id="resultsSection" hidden>
+        <div class="results-header">
+          <h2 class="results-title" id="resultsTitle">搜索结果</h2>
+          <span class="results-meta" id="resultsMeta"></span>
+        </div>
+        <ul class="results-list" id="resultsList"></ul>
+      </section>
+
+      <section class="state-section" id="stateSection">
+        <div class="state-empty" id="stateEmpty">
+          <svg viewBox="0 0 24 24" width="56" height="56" aria-hidden="true">
+            <path fill="currentColor" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+          </svg>
+          <p>输入关键词搜索特定领域，或留空浏览全站热门项目</p>
+        </div>
+        <div class="state-loading" id="stateLoading" hidden>
+          <div class="spinner" aria-hidden="true"></div>
+          <p>正在查询 GitHub，请稍候…</p>
+        </div>
+        <div class="state-error" id="stateError" hidden>
+          <p id="errorMessage">请求失败，请稍后重试</p>
+          <button type="button" class="retry-btn" id="retryBtn">重试</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>数据来源：GitHub Search API · 按创建时间筛选 · 非官方工具</p>
+    </footer>
+  </div>
+
+  <!-- 详情弹窗 -->
+  <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" hidden>
+    <div class="modal-overlay" id="modalOverlay"></div>
+    <div class="modal-content">
+      <button class="modal-close" id="modalClose" aria-label="关闭">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+        </svg>
+      </button>
+      <div class="modal-body">
+        <h2 class="modal-title" id="modalTitle"></h2>
+        <p class="modal-description" id="modalDescription"></p>
+        <div class="modal-stats" id="modalStats"></div>
+        <div class="modal-topics" id="modalTopics"></div>
+        <div class="modal-readme" id="modalReadme">
+          <p class="readme-loading">正在加载 README…</p>
+        </div>
+        <div class="modal-actions">
+          <a class="action-btn primary" id="modalRepoLink" target="_blank" rel="noopener">
+            在 GitHub 上查看
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
