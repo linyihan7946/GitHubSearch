@@ -1,5 +1,15 @@
 # GitHub Trending Search — Agent Skill
 
+> 本文件是导航入口。各 Agent 平台的实际 skill 文件在对应目录下。
+
+| Agent | 路径 | 说明 |
+|-------|------|------|
+| **Claude Code** | [`.claude/skills/github-trending/SKILL.md`](.claude/skills/github-trending/SKILL.md) | 带 frontmatter 元数据 |
+| **Codex (OpenAI)** | [`.codex/skills/github-trending/skill.md`](.codex/skills/github-trending/skill.md) | 英文，面向通用 Agent |
+| **Hermes** | [`.hermes/skills/github-trending/skill.md`](.hermes/skills/github-trending/skill.md) | 精简格式 |
+
+> 完整 API 规范见 [`openapi.yaml`](./openapi.yaml)，可被任意 OpenAPI 客户端导入。
+
 ## 技能名称
 
 `github-trending-search`
