@@ -132,8 +132,11 @@ GitHubSearch/
 │   │   └── api.js                   # 4 个 API 路由定义
 │   ├── services/
 │   │   └── github.js                # GitHub API 封装 + 内存缓存 + 语言颜色映射
-│   └── middleware/
-│       └── errorHandler.js          # 统一错误处理 + 错误码常量
+│   ├── middleware/
+│   │   └── errorHandler.js          # 统一错误处理 + 错误码常量
+│   └── deploy/
+│       ├── githubsearch-uppercase.conf  # 生产环境大写路径兼容跳转
+│       └── install-gateway-alias.sh     # 安装并重载项目专属网关别名
 ├── docs/                             # 补充文档（按需拆分）
 │   └── error-log.md                 # 重复错误记录（≥2 次的错误）
 └── AGENTS.md                         # 项目主文档（本文件，≤500行）
@@ -364,6 +367,13 @@ curl http://localhost:3000/api/repos/microsoft/typescript/readme
 - 调用方式：在请求中使用 `$search-github-trends`
 - 技能通过包装脚本调用本项目 API；服务未启动时会自动检查 Node.js 版本并启动后端
 
+### 生产路径兼容
+
+- 一键部署生成的规范地址：`https://www.aigenimage.cn/githubsearch/`
+- 项目专属兼容地址：`https://www.aigenimage.cn/GitHubSearch/`
+- 兼容地址通过 `backend/deploy/githubsearch-uppercase.conf` 永久重定向到规范地址，不修改通用一键部署工具
+- 首次安装或更新别名后，在远程项目目录执行 `sh backend/deploy/install-gateway-alias.sh`
+
 ### 测试要点
 
 1. **前端功能测试**：
@@ -470,5 +480,5 @@ chore: 构建/工具链
 
 ---
 
-**最后更新**：2026-07-21  
-**维护者**：Claude Code AI Assistant
+**最后更新**：2026-07-22  
+**维护者**：Codex
