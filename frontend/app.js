@@ -6,10 +6,11 @@
 (function () {
   'use strict';
 
-  // 后端地址（同源部署时可改相对路径，开发时用 localhost）
-  const BACKEND_HOST = window.location.port === '3000'
-    ? ''  // 如果就在后端端口打开，直接用同源
-    : 'http://localhost:3000';
+  // API 地址：开发时使用独立后端，部署时使用相对路径（兼容路径网关代理）
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const API_BASE = (isLocal && window.location.port !== '3000')
+    ? 'http://localhost:3000/api/'  // 前端独立开发模式：显式指定后端地址
+    : 'api/';                       // 同源部署（含生产环境路径网关代理），使用相对路径
 
   const PER_PAGE = 10;
   const FETCH_TIMEOUT_MS = 15000;
@@ -127,7 +128,7 @@
   /* ----- 调用搜索 API（优先后端） ----- */
   async function searchRepos(keyword, days) {
     // 优先走后端（有缓存、不限流），后端不可用时直接调 GitHub
-    const backendUrl = `${BACKEND_HOST}/api/search?keyword=${encodeURIComponent(keyword)}&days=${days}`;
+    const backendUrl = `${API_BASE}search?keyword=${encodeURIComponent(keyword)}&days=${days}`;
     try {
       const res = await fetchWithTimeout(backendUrl);
       if (res.ok) {
@@ -202,7 +203,7 @@
     const fn = repo.full_name || (repo.owner ? ownerStr(repo.owner) + '/' + repo.name : repo.name);
     // 尝试后端
     try {
-      const res = await fetchWithTimeout(`${BACKEND_HOST}/api/repos/${fn}/readme`);
+      const res = await fetchWithTimeout(`${API_BASE}repos/${fn}/readme`);
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data.html) return json.data.html;

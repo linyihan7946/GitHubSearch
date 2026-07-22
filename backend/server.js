@@ -39,6 +39,17 @@ app.use(
   })
 );
 
+// 路径网关代理前缀处理：兼容 Nginx location /prefix/ → 容器 的反向代理
+// Nginx 配置中 proxy_pass 不带 URI 路径时，完整请求 URI（含前缀）会被转发到容器。
+// 此中间件根据 X-Forwarded-Prefix 头剥除前缀，使路由匹配恢复正常。
+app.use((req, res, next) => {
+  const prefix = req.headers['x-forwarded-prefix'];
+  if (prefix && req.url.startsWith(prefix)) {
+    req.url = req.url.slice(prefix.length) || '/';
+  }
+  next();
+});
+
 // 请求体解析（虽然当前 API 全是 GET，但为未来扩展预留）
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
