@@ -358,6 +358,12 @@ curl http://localhost:3000/api/repos/microsoft/typescript/readme
 - **推荐**：22.x（最新稳定版）
 - **切换方式**（Windows nvm）：`nvm use 22.16.0`
 
+### Codex 技能集成
+
+- 个人技能：`C:\Users\Administrator\.codex\skills\search-github-trends`
+- 调用方式：在请求中使用 `$search-github-trends`
+- 技能通过包装脚本调用本项目 API；服务未启动时会自动检查 Node.js 版本并启动后端
+
 ### 测试要点
 
 1. **前端功能测试**：
