@@ -377,6 +377,7 @@ curl http://localhost:3000/api/repos/microsoft/typescript/readme
 ### 测试要点
 
 1. **前端功能测试**：
+   - 修改 `frontend/app.js` 后先运行 `node --check frontend/app.js`，避免函数边界缺失导致整页脚本无法加载
    - 输入关键词（如 "ai"）+ 选择时间范围 → 验证结果列表
    - 点击项目卡片 → 验证弹窗显示详情和 README
    - 测试边界情况（无结果、API 限流、网络错误）
@@ -480,5 +481,5 @@ chore: 构建/工具链
 
 ---
 
-**最后更新**：2026-07-22  
+**最后更新**：2026-07-24
 **维护者**：Codex

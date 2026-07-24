@@ -9,6 +9,7 @@
  * ============================================================ */
 
 const { createError, ERROR_CODES } = require('../middleware/errorHandler');
+const ossinsight = require('./ossinsight');
 
 const API_BASE = 'https://api.github.com';
 const DEFAULT_PER_PAGE = 10;
@@ -203,11 +204,74 @@ function formatIssue(raw) {
 /* ===== 对外暴露的 API ===== */
 
 /**
- * 搜索趋势项目
+ * 搜索趋势项目（使用 OSS Insight 真实趋势数据）
+ *
+ * OSS Insight 基于 6B+ GitHub 事件计算趋势评分（total_score），
+ * 综合了 star 增长、PR、push、contributor 等多维度信号。
+ *
+ * 当 OSS Insight 不可用时，自动回退到 GitHub Search API
+ * （按创建时间筛选，数据质量较低但保证可用性）。
+ *
  * @returns {{ data: object, cacheHit: boolean }}
  */
 async function searchRepos(keyword, days) {
-  const cacheKey = `search:${keyword.toLowerCase()}:${days}`;
+  const period = ossinsight.daysToPeriod(days);
+  const cacheKey = `trending:${keyword.toLowerCase()}:${period}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) return { data: cached, cacheHit: true };
+
+  // 尝试 OSS Insight（真实趋势数据）
+  let items = [];
+  let source = 'ossinsight';
+
+  try {
+    const rows = await ossinsight.fetchTrendingRepos(period);
+
+    // 按关键词后过滤（OSS Insight 不支持关键词搜索）
+    if (keyword) {
+      const kw = keyword.toLowerCase();
+      items = rows.filter((r) =>
+        r.fullName.toLowerCase().includes(kw) ||
+        (r.description || '').toLowerCase().includes(kw) ||
+        r.collections.some((c) => c.toLowerCase().includes(kw))
+      );
+    } else {
+      items = rows;
+    }
+  } catch (err) {
+    // OSS Insight 不可用时回退到旧方案
+    console.warn(`OSS Insight 不可用，回退到 GitHub Search：${err.message}`);
+    const fallback = await searchReposFallback(keyword, days);
+    return fallback;
+  }
+
+  // 取 Top 10，并补充真实星标增长数据
+  const topItems = items.slice(0, 10);
+  const enriched = await ossinsight.enrichWithStarGrowth(topItems, period);
+
+  const data = {
+    keyword,
+    days,
+    period,
+    source,          // 数据来源标识
+    totalCount: items.length,
+    items: enriched,
+  };
+
+  cacheSet(cacheKey, data, CACHE_TTL.search);
+  return { data, cacheHit: false };
+}
+
+/**
+ * [回退] 按仓库创建时间搜索（非真实趋势数据）。
+ *
+ * GitHub Search API 的 created 限定符按仓库创建日期筛选，
+ * 只能找到「最近创建的热门仓库」，无法反映已有仓库的 star 增长。
+ *
+ * 仅在 OSS Insight API 不可用时使用。
+ */
+async function searchReposFallback(keyword, days) {
+  const cacheKey = `fallback:${keyword.toLowerCase()}:${days}`;
   const cached = cacheGet(cacheKey);
   if (cached) return { data: cached, cacheHit: true };
 
@@ -227,6 +291,7 @@ async function searchRepos(keyword, days) {
     keyword,
     days,
     sinceDate,
+    source: 'github_search',  // 标记为回退数据源
     totalCount: body.total_count || 0,
     items: Array.isArray(body.items)
       ? body.items.map((item, idx) => formatRepo(item, idx + 1))

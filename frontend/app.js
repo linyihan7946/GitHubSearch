@@ -90,18 +90,17 @@
   async function handleSearch() {
     const keyword = els.keyword.value.trim();
     const days = parseInt(els.selectedDays.value, 10) || 7;
-    const sinceDate = calcSinceDate(days);
 
     setLoading(true);
     showState('loading');
 
     try {
       const data = await searchRepos(keyword, days);
-      const sinceDate = data.sinceDate || calcSinceDate(days);
       renderResults({
         keyword,
         days,
-        sinceDate,
+        period: data.period || null,
+        source: data.source || null,
         totalCount: data.totalCount ?? data.total_count ?? 0,
         items: data.items || [],
       });
@@ -127,7 +126,7 @@
 
   /* ----- 调用搜索 API（优先后端） ----- */
   async function searchRepos(keyword, days) {
-    // 优先走后端（有缓存、不限流），后端不可用时直接调 GitHub
+    // 优先走后端（OSS Insight 真实趋势数据）
     const backendUrl = `${API_BASE}search?keyword=${encodeURIComponent(keyword)}&days=${days}`;
     try {
       const res = await fetchWithTimeout(backendUrl);
@@ -135,15 +134,13 @@
         const json = await res.json();
         if (json.success) return normalizeSearchData(json.data);
       }
-      // 后端返回非 2xx 或 success:false，可能是未启动，回退
       console.warn('后端不可用（状态: ' + res.status + '），尝试直连 GitHub');
     } catch (_) {
       console.warn('后端不可用（网络错误），尝试直连 GitHub');
     }
 
-    // 回退：直连 GitHub
-    const since = calcSinceDate(days);
-    const query = keyword ? `${keyword} created:>=${since}` : `created:>=${since}`;
+    // 回退：直连 GitHub（按星数排序热门仓库，非趋势数据）
+    const query = keyword || 'stars:>100';
     const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&sort=stars&order=desc&per_page=${PER_PAGE}`;
     const res = await fetchWithTimeout(url, {
       headers: { Accept: 'application/vnd.github+json' },
@@ -159,11 +156,11 @@
     }
 
     const raw = await res.json();
-    // 统一为后端格式，方便 renderResults 消费
+    // 回退模式：标记为 github_search，前端会显示数据来源提示
     return normalizeSearchData({
       keyword,
       days,
-      sinceDate: since,
+      source: 'github_search',
       totalCount: raw.total_count || 0,
       items: raw.items || [],
     });
@@ -174,6 +171,8 @@
     return {
       ...data,
       totalCount: data.totalCount ?? data.total_count ?? 0,
+      period: data.period || null,
+      source: data.source || null,
       items: (data.items || []).map((repo) => ({
         ...repo,
         full_name: repo.full_name || repo.fullName || '',
@@ -186,6 +185,9 @@
         updated_at: repo.updated_at || repo.updatedAt || '',
         open_issues_count: repo.open_issues_count ?? repo.openIssues ?? 0,
         archived: repo.archived ?? repo.isArchived ?? false,
+        trending_score: repo.trendingScore ?? repo.trending_score ?? null,
+        star_growth: repo.starGrowth ?? repo.star_growth ?? null,
+        collection_names: repo.collections ?? repo.collection_names ?? [],
       })),
     };
   }
@@ -238,7 +240,11 @@
 
     els.resultsTitle.textContent = `TOP ${ctx.items.length} · ${label}`;
     const timeLabel = formatTimeRange(ctx.days);
-    els.resultsMeta.textContent = `自 ${ctx.sinceDate} 起（${timeLabel}） · 共 ${formatNumber(ctx.totalCount)} 个项目`;
+    const sourceNote = ctx.source === 'github_search'
+      ? '（回退模式：按创建时间筛选，非真实趋势数据）'
+      : (ctx.days > 30 ? '（OSS Insight 趋势数据最多覆盖近 3 个月）' : '');
+    els.resultsMeta.textContent =
+      `${timeLabel}${sourceNote} · 共 ${formatNumber(ctx.totalCount)} 个项目`;
 
     ctx.items.forEach((repo, idx) => {
       const li = document.createElement('li');
@@ -254,6 +260,7 @@
       const name = repo.name;
       const desc = repo.description || '暂无简介';
       const createdAt = repo.created_at ? repo.created_at.slice(0, 10) : '';
+      const starGrowth = repo.starGrowth ?? repo.star_growth ?? null;
 
       li.innerHTML = `
         <div class="repo-rank" aria-hidden="true">${idx + 1}</div>
@@ -265,12 +272,14 @@
           </div>
           <p class="repo-desc" data-original="${escapeHtml(desc)}">${escapeHtml(desc)}</p>
           <div class="repo-meta">
-            <span class="meta-item" title="星标数">
+            <span class="meta-item" title="总星标数">
               <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
                 <path fill="currentColor" d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/>
               </svg>
               <strong>${stars}</strong>
             </span>
+            ${starGrowth != null ? `<span class="meta-item star-growth" title="预估新增星标（基于月度历史估算）">📈 +${formatNumber(starGrowth)}</span>` : ''}
+            ${repo.trending_score != null ? `<span class="meta-item trending-score" title="趋势热度分（综合 star 增长、PR、push 等信号）">🔥 ${Math.round(repo.trending_score)}</span>` : ''}
             <span class="meta-item" title="Fork 数">
               <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
                 <path fill="currentColor" d="M12 2a3 3 0 0 0-3 3c0 1.3.84 2.4 2 2.82V9H9a4 4 0 0 0-4 4v1h10v-1a4 4 0 0 0-4-4h-2V7.82A3.005 3.005 0 0 0 12 2zm0 2a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm6 13a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM6 17a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>
@@ -278,7 +287,7 @@
               ${forks}
             </span>
             ${repo.language ? `<span class="meta-item"><span class="language-dot" style="background:${langColor}"></span>${escapeHtml(repo.language)}</span>` : ''}
-            ${createdAt ? `<span class="meta-item">创建于 ${createdAt}</span>` : ''}
+            ${!starGrowth && !repo.trending_score && createdAt ? `<span class="meta-item">创建于 ${createdAt}</span>` : ''}
           </div>
         </div>
       `;
@@ -477,9 +486,9 @@
     if (days <= 3) return '最近 3 天';
     if (days === 7) return '最近一周';
     if (days === 30) return '最近一月';
-    if (days === 365) return '最近一年';
-    if (days === 1095) return '最近三年';
-    if (days === 1825) return '最近五年';
+    if (days === 365) return '最近一年 *';
+    if (days === 1095) return '最近三年 *';
+    if (days === 1825) return '最近五年 *';
     return `最近 ${days} 天`;
   }
 

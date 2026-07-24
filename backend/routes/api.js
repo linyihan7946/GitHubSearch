@@ -10,6 +10,7 @@
 
 const express = require('express');
 const github = require('../services/github');
+const ossinsight = require('../services/ossinsight');
 const { createError, ERROR_CODES } = require('../middleware/errorHandler');
 
 const router = express.Router();
@@ -25,7 +26,10 @@ router.get('/health', (req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    cache: github.cacheStats(),
+    cache: {
+      github: github.cacheStats(),
+    },
+    dataSource: 'OSS Insight Trending API (primary) + GitHub REST API (detail/fallback)',
   });
 });
 

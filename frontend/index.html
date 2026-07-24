@@ -17,7 +17,7 @@
           </svg>
           <span>GitHub 趋势搜索</span>
         </h1>
-        <p class="subtitle">发现某领域内星标增长最快的开源项目</p>
+        <p class="subtitle">发现某领域内增长最快的热门开源项目（基于 OSS Insight 真实趋势数据）</p>
       </div>
     </header>
 
@@ -45,6 +45,7 @@
               <button type="button" class="range-btn" data-days="1825">最近五年</button>
             </div>
             <input type="hidden" id="selectedDays" value="7" />
+            <span class="label-hint period-note">* 一年/三年/五年：OSS Insight 趋势数据最多覆盖近 3 个月</span>
           </div>
 
           <button type="submit" class="search-btn" id="searchBtn">
@@ -83,7 +84,7 @@
     </main>
 
     <footer class="footer">
-      <p>数据来源：GitHub Search API · 按创建时间筛选 · 非官方工具</p>
+      <p>数据来源：OSS Insight Trending API (PingCAP) · 基于 6B+ GitHub 事件计算趋势热度 · 非官方工具</p>
     </footer>
   </div>
 

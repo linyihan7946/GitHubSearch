@@ -152,6 +152,15 @@ a:hover {
   font-size: 12px;
 }
 
+/* 时间段限制提示 */
+.period-note {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
 .form-group input[type="text"] {
   width: 100%;
   padding: 10px 14px;
@@ -367,6 +376,32 @@ a:hover {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+}
+
+/* 趋势热度分标签 */
+.trending-score {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ff6b35, #f7931e);
+  color: #fff !important;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 预估星标增长标签 */
+.star-growth {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff !important;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .language-dot {
